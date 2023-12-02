@@ -1,0 +1,22 @@
+Source: cloudmin-config
+Section: admin
+Priority: optional
+Maintainer: Joe Cooper <joe@virtualmin.com>
+Standards-Version: 3.9.4
+Homepage: http://search.cpan.org/dist/Cloudmin-Config/
+
+Package: cloudmin-config
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends},
+ liblog-log4perl-perl,
+ libterm-spinner-color-perl,
+ perl,
+ perl-modules
+Description: Configure a system for use by Cloudmin 
+ This is a mini-framework for configuring elements of a Cloudmin system. It
+ uses Webmin as a library to abstract common configuration tasks, provides a
+ friendly status indicator, and makes it easy to pick and choose the kind of
+ configuration you want (should you choose to go that route).
+ .
+ It includes plugins for all of the common install tasks in a Cloudmin system,
+ such as KVM, Xen, BIND, etc.

@@ -1,0 +1,130 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use 5.010_001;
+use Getopt::Long;
+BEGIN { $Pod::Usage::Formatter = 'Pod::Text::Color'; }
+use Pod::Usage qw(pod2usage);
+use Term::ANSIColor qw(:constants);
+use Virtualmin::Config;
+
+sub main {
+  my ($argv) = @_;
+  my %opt;
+  my (@include, @exclude);
+  GetOptions(
+    \%opt, 'help|h', 'test|t', 'bundle|b=s', 'log|l=s', 'list-bundles|s',
+    'list-plugins|p',
+    'include|i=s{1,}' => \@include,
+    'exclude|x=s{1,}' => \@exclude,
+  );
+  pod2usage(0) if $opt{help};
+  if ($opt{'list-bundles'}) {
+    my $config  = Cloudmin::Config->new();
+    my @bundles = $config->list_bundles();
+    say YELLOW . "Available Configuration Bundles:\n";
+    my $numcols = 4;
+    my $cur     = 0;
+    printf "  ";
+    for my $b (@bundles) {
+      printf(CYAN . "%-18s ", $b);
+      $cur++;
+      if ($cur == $numcols) { $cur = 0; printf "\n  " . RESET; }
+    }
+    say '';
+    exit 0;
+  }
+  if ($opt{'list-plugins'}) {
+    my $config  = Cloudmin::Config->new();
+    my @plugins = $config->list_plugins();
+    say YELLOW . "Available Plugins:\n";
+    my $numcols = 4;
+    my $cur     = 0;
+    printf "  ";
+    for my $p (@plugins) {
+      printf(CYAN . "%-18s ", $p);
+      $cur++;
+      if ($cur == $numcols) { $cur = 0; printf "\n  " . RESET; }
+    }
+    say '';
+    exit 0;
+  }
+
+  unless ($opt{bundle} || @include) {
+    pod2usage(-perldocopt => 'Color');
+  }
+
+  my $bundle = Cloudmin::Config->new(
+    bundle  => $opt{bundle},
+    log     => $opt{log},
+    include => \@include,
+    exclude => \@exclude,
+    test    => $opt{test},
+  );
+
+  $bundle->run();
+
+  return 0;
+}
+
+exit main(\@ARGV);
+
+=pod
+
+=head1 config-system
+
+Perform initial configuration of system services and virtualization
+
+=head1 SYNOPSIS
+
+cloudmin config-system [options]
+
+  Options:
+    --help|-h          Print this summary of options and exit
+    --list-bundles|-s  List available installation bundles
+    --list-plugins|-p  List available plugins
+    --bundle|-b        A bundle of plugins to execute
+    --log|-l           Path to a file for logging actions
+    --include|-i       One or more extra plugins to include
+    --exclude|-x       One or more plugins to exclude
+    --test|-t          Test services after configured (when available)
+
+=head1 OPTIONS
+
+=over
+
+=item --bundle
+
+A set of configuration options, to initialize the system for use as a Virtualmin
+system. Default plugin bundle is "KVM", which configures KVM virtualization, as 
+well as a variety of other components. "Xen" replaces KVM with Xen.
+
+=item --include
+
+Include one or more additional plugins. Works with or without a bundle
+specified. Multiple plugins can be provided with this option, separated by
+spaces. If no bundle is specified, only the included plugins, and dependencies
+will be installed.
+
+=item --exclude
+
+Exclude one or more plugins from either the default bundle, if no  bundle is
+specified, or from the bundle specified.
+
+=item --test
+
+Run tests for plugins, when available. Testing a service during configuration
+confirms whether it is in the expected state. For large plugin bundles this can
+make the process take a long time. Disabled by default.
+
+=back
+
+=head1 EXIT CODES
+
+Returns 0 on success, 1 on failure.
+
+=head1 LICENSE AND COPYRIGHT
+
+Licensed under the GPLv3. Copyright 2017-2023, Joe Cooper <joe@virtualmin.com>
+
+=cut

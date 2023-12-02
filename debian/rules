@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -- NO_PERLLOCAL=1
+
+override_dh_auto_install:
+	sed -i 's/\/vendor_perl//' Makefile
+	dh_auto_install
+	find debian/cloudmin-config -type f -name .packlist -delete
+	rm -rf debian/cloudmin-config/usr/lib
+	mkdir -p debian/cloudmin-config/usr/share/webmin/server-manager
+	ln -s /usr/bin/cloudmin-config-system debian/cloudmin-config/usr/share/webmin/server-manager/config-system.pl
+
+override_dh_strip_nondeterminism:
