@@ -1,9 +1,9 @@
-package Virtualmin::Config::Plugin::Virtualmin;
+package Cloudmin::Config::Plugin::Cloudmin;
 use strict;
 use warnings;
 no warnings qw(once);
 no warnings 'uninitialized';
-use parent 'Virtualmin::Config::Plugin';
+use parent 'Cloudmin::Config::Plugin';
 
 our $config_directory;
 our (%gconfig, %miniserv);
@@ -14,7 +14,7 @@ sub new {
 
   # inherit from Plugin
   my $self
-    = $class->SUPER::new(name => 'Virtualmin', depends => ['Usermin'], %args);
+    = $class->SUPER::new(name => 'Cloudmin', depends => ['Usermin'], %args);
 
   return $self;
 }
@@ -89,7 +89,7 @@ sub actions {
         = 'ServerName ${DOM}	<Anonymous ${HOME}/ftp>	User ftp	Group nogroup	UserAlias anonymous ftp	<Limit WRITE>	DenyAll	</Limit>	RequireValidShell off	</Anonymous>';
     }
 
-    # Make the Virtualmin web directories a bit more secure
+    # Make the Cloudmin web directories a bit more secure
     # FreeBSD has a low secondary groups limit..skip this bit.
     # XXX ACLs can reportedly deal with this...needs research.
     unless ($gconfig{'os_type'} eq 'freebsd') {
@@ -186,7 +186,7 @@ sub actions {
     $uacl{'root'} = '';
     write_file($afile, \%uacl);
 
-    # Configure the Usermin Change Password module to use Virtualmin's
+    # Configure the Usermin Change Password module to use Cloudmin's
     # change-password.pl script
     $cfile = "$usermin::config{'usermin_dir'}/changepass/config";
     my %cpconfig;
@@ -251,7 +251,7 @@ sub actions {
     else { $uconfig{'homedir_perms'} = "0750"; }
     save_module_config(\%uconfig, "useradmin");
 
-    # Turn on caching for downloads by Virtualmin
+    # Turn on caching for downloads by Cloudmin
     if (!$gconfig{'cache_size'}) {
       $gconfig{'cache_size'} = 50 * 1024 * 1024;
       $gconfig{'cache_mods'} = "virtual-server";

@@ -1,10 +1,10 @@
-package Virtualmin::Config::Plugin::Firewalld;
+package Cloudmin::Config::Plugin::Firewalld;
 
 # Enables firewalld and installs a reasonable set of rules.
 use strict;
 use warnings;
 no warnings qw(once);
-use parent 'Virtualmin::Config::Plugin';
+use parent 'Cloudmin::Config::Plugin';
 
 our $config_directory;
 our (%gconfig, %miniserv);

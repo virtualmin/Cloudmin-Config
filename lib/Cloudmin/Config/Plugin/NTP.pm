@@ -1,8 +1,8 @@
-package Virtualmin::Config::Plugin::NTP;
+package Cloudmin::Config::Plugin::NTP;
 use strict;
 use warnings;
-use 5.010;
-use parent qw(Virtualmin::Config::Plugin);
+use 5.016;
+use parent qw(Cloudmin::Config::Plugin);
 use Time::HiRes qw( sleep );
 my $log = Log::Log4perl->get_logger("virtualmin-config-system");
 

@@ -1,8 +1,8 @@
-package Virtualmin::Config::Plugin::Test2;
+package Cloudmin::Config::Plugin::Test2;
 use strict;
 use warnings;
-use 5.010;
-use parent qw(Virtualmin::Config::Plugin);
+use 5.016;
+use parent qw(Cloudmin::Config::Plugin);
 
 sub new {
   my ($class, %args) = @_;

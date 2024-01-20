@@ -1,8 +1,8 @@
-package Virtualmin::Config::Plugin::Limits;
+package Cloudmin::Config::Plugin::Limits;
 use strict;
 use warnings;
 no warnings qw(once);
-use parent 'Virtualmin::Config::Plugin';
+use parent 'Cloudmin::Config::Plugin';
 
 our $config_directory;
 our (%gconfig, %miniserv);
@@ -72,7 +72,7 @@ sub actions {
 
 =pod
 
-=head1 Virtualmin::Config::Plugin::Limits
+=head1 Cloudmin::Config::Plugin::Limits
 
 Modify limits in sysctl.conf or sysctl.d.
 

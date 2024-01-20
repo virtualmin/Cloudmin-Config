@@ -1,9 +1,9 @@
-package Virtualmin::Config::Plugin::Test;
+package Cloudmin::Config::Plugin::Test;
 use strict;
 use warnings;
-use 5.010;
+use 5.016;
 use Term::ANSIColor qw(:constants);
-use parent 'Virtualmin::Config::Plugin';
+use parent 'Cloudmin::Config::Plugin';
 use Log::Log4perl;
 
 sub new {

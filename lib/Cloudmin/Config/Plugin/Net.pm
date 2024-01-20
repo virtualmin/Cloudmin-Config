@@ -1,8 +1,8 @@
-package Virtualmin::Config::Plugin::Net;
+package Cloudmin::Config::Plugin::Net;
 use strict;
 use warnings;
 no warnings qw(once);
-use parent 'Virtualmin::Config::Plugin';
+use parent 'Cloudmin::Config::Plugin';
 
 our $config_directory;
 our (%gconfig, %miniserv);
@@ -50,7 +50,7 @@ sub actions {
       if (indexof('nameserver 127.0.0.1'), @{$rlref} < 0) {
         $log->info("Adding name server 127.0.0.1 to resolv.conf.");
         unshift(@{$rlref}, 'nameserver 127.0.0.1');
-        unshift(@{$rlref}, '# Added by Virtualmin.');
+        unshift(@{$rlref}, '# Added by Cloudmin.');
       }
       flush_file_lines($resolvconf);
 
@@ -92,7 +92,7 @@ sub actions {
             $log->info(
               "Attempting to add name server 127.0.0.1 to dhcp configuration.");
             push(@{$lref}, 'prepend domain-name-servers 127.0.0.1;');
-            push(@{$lref}, '# Added by Virtualmin.');
+            push(@{$lref}, '# Added by Cloudmin.');
           }
           flush_file_lines($file);
         }

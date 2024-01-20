@@ -1,8 +1,8 @@
-package Virtualmin::Config::Plugin::SELinux;
+package Cloudmin::Config::Plugin::SELinux;
 use strict;
 use warnings;
 no warnings qw(once);
-use parent 'Virtualmin::Config::Plugin';
+use parent 'Cloudmin::Config::Plugin';
 use Time::HiRes qw( sleep );    # XXX Figure out how to not need this.
 
 our $config_directory;

@@ -1,8 +1,8 @@
-package Virtualmin::Config::Plugin::Etckeeper;
+package Cloudmin::Config::Plugin::Etckeeper;
 use strict;
 use warnings;
 no warnings qw(once);
-use parent 'Virtualmin::Config::Plugin';
+use parent 'Cloudmin::Config::Plugin';
 
 our (%gconfig, %miniserv);
 our $trust_unknown_referers = 1;

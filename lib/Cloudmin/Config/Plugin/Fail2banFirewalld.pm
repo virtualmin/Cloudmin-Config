@@ -1,4 +1,4 @@
-package Virtualmin::Config::Plugin::Fail2banFirewalld;
+package Cloudmin::Config::Plugin::Fail2banFirewalld;
 
 # Enables fail2ban and sets up a reasonable set of rules.
 # This is currently identical to Fail2ban, with a different depends.
@@ -7,7 +7,7 @@ package Virtualmin::Config::Plugin::Fail2banFirewalld;
 use strict;
 use warnings;
 no warnings qw(once);
-use parent 'Virtualmin::Config::Plugin';
+use parent 'Cloudmin::Config::Plugin';
 
 our $config_directory;
 our (%gconfig, %miniserv);
@@ -117,7 +117,7 @@ sub create_fail2ban_firewalld {
     # Apply firewalld actions by default
     open(my $FIREWALLD_CONF, '>', '/etc/fail2ban/jail.d/00-firewalld.conf');
     print $FIREWALLD_CONF <<EOF;
-# This file created by Virtualmin to enable firewalld-cmd actions by
+# This file created by Cloudmin to enable firewalld-cmd actions by
 # default. It can be removed, if you use a different firewall.
 [DEFAULT]
 banaction = firewallcmd-ipset

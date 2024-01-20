@@ -1,4 +1,4 @@
-package Virtualmin::Config::Dummy;
+package Cloudmin::Config::Dummy;
 
 # A list of plugins for testing
 use strict;

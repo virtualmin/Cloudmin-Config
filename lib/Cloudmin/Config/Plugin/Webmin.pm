@@ -1,8 +1,8 @@
-package Virtualmin::Config::Plugin::Webmin;
+package Cloudmin::Config::Plugin::Webmin;
 use strict;
 use warnings;
 no warnings qw(once);
-use parent 'Virtualmin::Config::Plugin';
+use parent 'Cloudmin::Config::Plugin';
 
 our $config_directory;
 our (%gconfig, %miniserv);
