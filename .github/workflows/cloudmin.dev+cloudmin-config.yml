@@ -53,11 +53,12 @@ jobs:
           CLOUD__SIGN_BUILD_REPOS_CMD: ${{ secrets.DEV_SIGN_BUILD_REPOS_CMD }}
         run: |-
           # Set package version
-          pkg_version=$(curl -s -H "Authorization: token $GH_TOKEN" \
-            https://api.github.com/repos/$GH_REPO/releases/latest | jq -r .tag_name)
-          if [[ "$pkg_version" =~ ^v ]]; then
-            pkg_version="${pkg_version:1}"
-          fi
+          # pkg_version=$(curl -s -H "Authorization: token $GH_TOKEN" \
+          #   https://api.github.com/repos/$GH_REPO/releases/latest | jq -r .tag_name)
+          # if [[ "$pkg_version" =~ ^v ]]; then
+          #   pkg_version="${pkg_version:1}"
+          # fi
+          pkg_version="1.0.0"
           
           # Set testing flag
           if [ "${{ env.IS_RELEASE }}" = "false" ]; then
