@@ -37,7 +37,6 @@ sub actions {
   eval {
       systemctl start cgconfig
       systemctl enable cgconfig
-    }
   };
   if ($@) {
     $self->done(0);
