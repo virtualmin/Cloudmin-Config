@@ -33,11 +33,11 @@ This is a mini-framework for configuring elements of a Cloudmin system. It
 uses Webmin as a library to abstract common configuration tasks, provides a
 friendly status indicator, and makes it easy to pick and choose the kind of
 configuration you want (should you choose to go that route). The Cloudmin
-install script chooses either the KVM or Xen bundle, and performs the 
-configuration for the whole stack.
+install script chooses KVM bundle, and performs the  configuration for the
+whole stack.
 
 It includes plugins for all of the common tasks in a Cloudmim installation, 
-such as CGroups, Xen or KVM, NTP, BIND, etc.
+such as CGroups, KVM, NTP, BIND, etc.
 
 =head1 INSTALLATION
 
@@ -101,7 +101,7 @@ C<include>, and C<exclude> attributes.
 
 =head1 LICENSE AND COPYRIGHT
 
-Licensed under the GPLv3. Copyright 2017-2023 Cloudmin, LLC, Virtualmin, Inc.,
+Licensed under the GPLv3. Copyright 2017-2025 Cloudmin, LLC, Virtualmin, Inc.,
 Jamie Cameron <jcameron@webmin.com>, Joe Cooper <joe@virtualmin.com>
 
 =cut

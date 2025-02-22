@@ -19,4 +19,4 @@ Description: Configure a system for use by Cloudmin
  configuration you want (should you choose to go that route).
  .
  It includes plugins for all of the common install tasks in a Cloudmin system,
- such as KVM, Xen, BIND, etc.
+ such as KVM, BIND, etc.

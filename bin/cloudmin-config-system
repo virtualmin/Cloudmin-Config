@@ -6,7 +6,7 @@ use Getopt::Long;
 BEGIN { $Pod::Usage::Formatter = 'Pod::Text::Color'; }
 use Pod::Usage qw(pod2usage);
 use Term::ANSIColor qw(:constants);
-use Virtualmin::Config;
+use Cloudmin::Config;
 
 sub main {
   my ($argv) = @_;
@@ -95,9 +95,9 @@ cloudmin config-system [options]
 
 =item --bundle
 
-A set of configuration options, to initialize the system for use as a Virtualmin
+A set of configuration options, to initialize the system for use as a Cloudmin
 system. Default plugin bundle is "KVM", which configures KVM virtualization, as 
-well as a variety of other components. "Xen" replaces KVM with Xen.
+well as a variety of other components.
 
 =item --include
 
@@ -125,6 +125,6 @@ Returns 0 on success, 1 on failure.
 
 =head1 LICENSE AND COPYRIGHT
 
-Licensed under the GPLv3. Copyright 2017-2023, Joe Cooper <joe@virtualmin.com>
+Licensed under the GPLv3. Copyright 2017-2025, Joe Cooper <joe@virtualmin.com>
 
 =cut

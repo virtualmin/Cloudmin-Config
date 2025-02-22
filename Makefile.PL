@@ -7,19 +7,19 @@ use 5.010;
 use ExtUtils::MakeMaker;
 
 my %WriteMakefileArgs = (
-  "ABSTRACT"           => "Configure a system for use by Virtualmin",
-  "AUTHOR"             => "Joe Cooper <swelljoe\@gmail.com>",
+  "ABSTRACT"           => "Configure a system for use by Cloudmin",
+  "AUTHOR"             => "Joe Cooper <joe\@virtualmin.com>",
   "CONFIGURE_REQUIRES" => {"ExtUtils::MakeMaker" => 0},
-  "DISTNAME"           => "Virtualmin-Config",
-  "EXE_FILES"          => ["bin/virtualmin-config-system"],
+  "DISTNAME"           => "Cloudmin-Config",
+  "EXE_FILES"          => ["bin/cloudmin-config-system"],
   "LICENSE"            => "gpl",
   "MIN_PERL_VERSION"   => "5.010",
-  "NAME"               => "Virtualmin::Config",
+  "NAME"               => "Cloudmin::Config",
   "PREREQ_PM" =>
     {"Log::Log4perl" => 0, "Term::ANSIColor" => 0},
   "TEST_REQUIRES" =>
     {"ExtUtils::MakeMaker" => 0, "File::Spec" => 0, "Test::More" => 0},
-  "VERSION" => "6.0.27",
+  "VERSION" => "10.0.0",
   "test"    => {"TESTS" => "t/*.t"}
 );
 

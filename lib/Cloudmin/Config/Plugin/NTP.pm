@@ -4,7 +4,7 @@ use warnings;
 use 5.016;
 use parent qw(Cloudmin::Config::Plugin);
 use Time::HiRes qw( sleep );
-my $log = Log::Log4perl->get_logger("virtualmin-config-system");
+my $log = Log::Log4perl->get_logger("cloudmin-config-system");
 
 sub new {
   my ($class, %args) = @_;

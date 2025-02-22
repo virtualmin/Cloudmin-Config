@@ -59,7 +59,7 @@ cloudmin config-system --include KVM
 
 =head1 LICENSE AND COPYRIGHT
 
-Licensed under the GPLv3. Copyright 2017, 2023, Joe Cooper <joe@virtualmin.com>
+Licensed under the GPLv3. Copyright 2017-2023, Joe Cooper <joe@virtualmin.com>
 
 =cut
 

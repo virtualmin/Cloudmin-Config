@@ -22,7 +22,7 @@ sub new {
   $self->{include} = $args{include};
   $self->{exclude} = $args{exclude};
   $self->{test}    = $args{test};
-  $self->{log}     = $args{log} || "/root/virtualmin-install.log";
+  $self->{log}     = $args{log} || "/root/cloudmin-install.log";
 
   return bless $self, $class;
 }
@@ -48,7 +48,7 @@ sub run {
   	log4perl.appender.FileApp.mode	= append
   );
   Log::Log4perl->init(\$log_conf);
-  my $log = Log::Log4perl->get_logger("virtualmin-config-system");
+  my $log = Log::Log4perl->get_logger("cloudmin-config-system");
   $log->info("Starting init-system log...");
 
   my @plugins = $self->_gather_plugins();
@@ -111,7 +111,7 @@ sub _gather_plugins {
 
   # If bundle specified, load it up.
   if ($self->{bundle}) {
-    my $pkg = "Virtualmin::Config::$self->{bundle}";
+    my $pkg = "Cloudmin::Config::$self->{bundle}";
     load $pkg;
     my $bundle = $pkg->new();
 
@@ -224,7 +224,7 @@ on boot) simpler to code.
 You can also call it with specific plugins, rather than a whole bundle of
 plugins.
 
-    my $plugin = Virtualmin::Config->new(include => 'FirewallD');
+    my $plugin = Cloudmin::Config->new(include => 'FirewallD');
     $plugin->run();
 
 Adding new features to the installer, or modifying installer features, should
@@ -236,8 +236,8 @@ This is a mini-framework for configuring elements of a Cloudmin system. It
 uses Webmin as a library to abstract common configuration tasks, provides a
 friendly status indicator, and makes it easy to pick and choose the kind of
 configuration you want (should you choose to go that route). The Cloudmin
-install script chooses either the KVM or Xen bundle, and performs the 
-configuration for the whole stack.
+install script chooses KVM bundle, and performs the  configuration for the
+whole stack.
 
 It includes plugins for all of the common tasks in a Cloudmin system, such
 as virtualization management tools, and support services like BIND and network
@@ -305,4 +305,4 @@ C<include>, and C<exclude> attributes.
 
 =head1 LICENSE AND COPYRIGHT
 
-Licensed under the GPLv3. Copyright 2017-2023 Virtualmin, Inc. <joe@virtualmin.com>
+Licensed under the GPLv3. Copyright 2017-2025, Joe Cooper <joe@virtualmin.com>

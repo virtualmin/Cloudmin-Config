@@ -8,7 +8,7 @@ our $config_directory;
 our (%gconfig, %miniserv);
 our $trust_unknown_referers = 1;
 
-my $log = Log::Log4perl->get_logger("virtualmin-config-system");
+my $log = Log::Log4perl->get_logger("cloudmin-config-system");
 
 sub new {
   my ($class, %args) = @_;
@@ -37,8 +37,8 @@ sub actions {
   eval {
     # Do we have /etc/sysctl.d?
     if (-d '/etc/sysctl.d') {
-      open(my $fh, '>', '/etc/sysctl.d/10-virtualmin.conf')
-        or die 'Unable to open /etc/sysctl.d/10-virtualmin.conf for writing';
+      open(my $fh, '>', '/etc/sysctl.d/10-cloudmin.conf')
+        or die 'Unable to open /etc/sysctl.d/10-cloudmin.conf for writing';
       print $fh '# Increase inotify limit, for noticron';
       print $fh
         '# If, for some reason, you have more than a few thousand files';
@@ -78,11 +78,11 @@ Modify limits in sysctl.conf or sysctl.d.
 
 =head1 SYNOPSIS
 
-virtualmin config-system --include Limits
+cloudmin config-system --include Limits
 
 =head1 LICENSE AND COPYRIGHT
 
-Licensed under the GPLv3. Copyright 2017, Joe Cooper <joe@virtualmin.com>
+Licensed under the GPLv3. Copyright 2017-2025, Joe Cooper <joe@virtualmin.com>
 
 =cut
 

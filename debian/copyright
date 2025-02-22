@@ -1,5 +1,5 @@
 Format-Specification: http://anonscm.debian.org/viewvc/dep/web/deps/dep5.mdwn?view=markup&pathrev=135
-Maintainer: Joe Cooper <swelljoe@gmail.com>
+Maintainer: Joe Cooper <joe@virtualmin.com>
 Source: http://search.cpan.org/dist/Cloudmin-Config/
 Name: Cloudmin-Config
 Files: *

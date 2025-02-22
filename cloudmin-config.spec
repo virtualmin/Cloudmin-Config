@@ -37,7 +37,7 @@ rm -rf $RPM_BUILD_ROOT
 
 make pure_install PERL_INSTALL_ROOT=$RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/libexec/webmin/server-manager
-# link cloudmin-config-system into Virtualmin dir
+# link cloudmin-config-system into Cloudmin dir
 ln -s /usr/bin/cloudmin-config-system \
   $RPM_BUILD_ROOT/usr/libexec/webmin/server-manager/config-system.pl
 
@@ -62,5 +62,5 @@ rm -rf $RPM_BUILD_ROOT
 /usr/libexec/webmin/server-manager/config-system.pl
 
 %changelog
-* Sat Feb 04 2023 Joe Cooper <joe@virtualmin.com> 10.0.0-1
-- Initial packaging.
+* Sat Feb 04 2023 Joe Cooper <joe@virtualmin.com> 10.0.0
+- Initial packaging

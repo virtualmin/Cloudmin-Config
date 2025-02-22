@@ -50,7 +50,7 @@ sub actions {
 
 =head1 Cloudmin::Config::Plugin::CGroups
 
-Enable cgconfig servicea for managing cgroups
+Enable cgconfig services for managing cgroups
 
 =head1 SYNOPSIS
 
@@ -58,7 +58,7 @@ cloudmin config-system --include CGroups
 
 =head1 LICENSE AND COPYRIGHT
 
-Licensed under the GPLv3. Copyright 2017, 2023, Joe Cooper <joe@virtualmin.com>
+Licensed under the GPLv3. Copyright 2017-2025, Joe Cooper <joe@virtualmin.com>
 
 =cut
 
