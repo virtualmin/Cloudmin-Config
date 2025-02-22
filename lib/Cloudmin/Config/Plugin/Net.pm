@@ -28,7 +28,7 @@ sub actions {
   my $cwd  = getcwd();
   my $root = $self->root();
   chdir($root);
-  $0 = "$root/virtual-server/config-system.pl";
+  $0 = "$root/server-manager/config-system.pl";
   push(@INC, $root);
   eval 'use WebminCore';    ## no critic
   init_config();
@@ -99,7 +99,7 @@ sub actions {
       }
 
       # Restart Postfix so that it picks up the new resolv.conf
-      foreign_require("virtual-server");
+      foreign_require("server-manager");
       virtual_server::stop_service_mail();
       virtual_server::start_service_mail();
     }

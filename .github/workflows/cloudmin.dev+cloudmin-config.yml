@@ -107,8 +107,8 @@ jobs:
 
           # Create symlinks
           declare -A paths=(
-            ["deb"]="usr/share/webmin/virtual-server"
-            ["rpm"]="usr/libexec/webmin/virtual-server"
+            ["deb"]="usr/share/webmin/server-manager"
+            ["rpm"]="usr/libexec/webmin/server-manager"
           )
           for suffix in "${!paths[@]}"; do
             target_path="${paths[$suffix]}"
@@ -130,7 +130,7 @@ jobs:
             --depends perl \
             --depends perl-modules \
             --depends liblog-log4perl-perl \
-            --depends webmin-virtual-server \
+            --depends webmin-server-manager \
             --section devel \
             --skip rpm \
             --description "${{ env.PKG_DESC }}" \
@@ -153,7 +153,7 @@ jobs:
             --depends "perl(POSIX)" \
             --depends "perl(Time::HiRes)" \
             --depends "perl(Term::ANSIColor)" \
-            --depends wbm-virtual-server \
+            --depends wbm-server-manager \
             --group "Development/Libraries" \
             --spec-files-depth 3 \
             --skip deb \
