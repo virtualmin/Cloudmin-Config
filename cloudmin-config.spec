@@ -1,5 +1,5 @@
 Name:           cloudmin-config
-Version:        10.0.0
+Version:        1.0.0
 Release:        1
 Summary:        Collection of plugins to initialize the configuration of services that Cloudmin manages, and a command line tool called config-system to run them
 License:        GPL+
@@ -62,5 +62,5 @@ rm -rf $RPM_BUILD_ROOT
 /usr/libexec/webmin/server-manager/config-system.pl
 
 %changelog
-* Sat Feb 04 2023 Joe Cooper <joe@virtualmin.com> 10.0.0
+* Sat Feb 04 2023 Joe Cooper <joe@virtualmin.com> 1.0.0
 - Initial packaging
