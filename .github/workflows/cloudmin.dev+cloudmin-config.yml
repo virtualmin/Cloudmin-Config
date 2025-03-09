@@ -59,7 +59,7 @@ jobs:
           # Bootstrap build
           source bootstrap.bash $([[ "$IS_RELEASE" == "true" ]] || echo "--testing")
 
-          pkg_version="1.0.0"          
+          pkg_version="1.0.0"
           # Set testing flag
           if [ "${{ env.IS_RELEASE }}" = "false" ]; then
             testing_flag="--testing"
