@@ -61,7 +61,7 @@ sub spin {
   state $count = 1;
   my $self    = shift;
   my $name    = $self->name();
-  my $message = shift // "Configuring " . format_plugin_name($name);
+  my $message = shift // "Configuring " . $name;
   $log->info($message);
   spinner("new");
   $message = "["
