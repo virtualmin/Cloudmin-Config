@@ -97,11 +97,6 @@ sub actions {
           flush_file_lines($file);
         }
       }
-
-      # Restart Postfix so that it picks up the new resolv.conf
-      foreign_require("server-manager");
-      virtual_server::stop_service_mail();
-      virtual_server::start_service_mail();
     }
     $self->done(1);    # OK!
   };
