@@ -35,8 +35,6 @@ sub actions {
   eval {
     my %wacl = ('disallow' => 'upgrade');
     save_module_acl(\%wacl, 'root', 'webmin');
-    my %uacl = ('upgrade' => 0);
-    save_module_acl(\%uacl, 'root', 'usermin');
     $self->done(1);         # OK!
   };
   if ($@) {
