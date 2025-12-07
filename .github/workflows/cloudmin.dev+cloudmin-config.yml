@@ -6,17 +6,19 @@ on:
       - main
   release:
     types:
-      - published
+      - prereleased
+      - released
 
 env:
   GH_REPO: ${{ github.repository }}
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  PKG_RELEASE: "1"
+  PKG_RELEASE: ${{ github.run_attempt }}
   PKG_NAME: "cloudmin-config"
   PKG_DESC: "This mini-framework simplifies configuring elements of a Cloudmin system. It leverages Webmin as a library to handle common configuration tasks, offers a user-friendly status indicator, and makes it easy to customize your setup if that's the route you prefer."
   PKG_HOMEPAGE: "https://github.com/virtualmin/Cloudmin-Config"
   PKG_SUMMARY: "Configure a system for use by Cloudmin"
   IS_RELEASE: ${{ github.event_name == 'release' }}
+  IS_PRERELEASE: ${{ github.event.release.prerelease || false }}
 
   BUILD_DEPS: "git tar curl gzip gcc make dpkg-dev fakeroot rpm build-essential libc6-dev coreutils"
   BUILD_BOOTSTRAP: "https://raw.githubusercontent.com/webmin/webmin-ci-cd/main/build/bootstrap.bash"
@@ -55,7 +57,9 @@ jobs:
           set -euo pipefail
           
           # Bootstrap build
-          source bootstrap.bash $([[ "$IS_RELEASE" == "true" ]] || echo "--testing")
+          source bootstrap.bash \
+            $([[ "$IS_RELEASE" != "true" ]] && echo "--testing") \
+            $([[ "$IS_PRERELEASE" == "true" ]] && echo "--prerelease")
 
           pkg_version="1.0.0"
           # Set testing flag
