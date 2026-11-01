@@ -4,7 +4,7 @@ package Cloudmin::Config;
 use strict;
 use warnings;
 no warnings qw(once);    # We've got some globals that effect Webmin behavior
-use 5.016_001;           # Version shipped with CentOS 7. Nothing older.
+use 5.026;
 use Module::Load;
 use Term::ANSIColor qw(:constants);
 use Log::Log4perl qw(:easy);
@@ -14,6 +14,7 @@ our (%gconfig, %uconfig, %miniserv, %uminiserv);
 our ($root_directory, $config_directory);
 our ($trust_unknown_referers, $no_acl_check, $error_must_die, $file_cache);
 
+# new(class, [options]) Selects plugins, optional tests and the log file.
 sub new {
   my ($class, %args) = @_;
   my $self = {};
@@ -27,7 +28,7 @@ sub new {
   return bless $self, $class;
 }
 
-# Gathered plugins are processed
+# run(self) Runs plugins in dependency order and stops on failure.
 sub run {
   my $self = shift;
 
@@ -55,11 +56,18 @@ sub run {
   @plugins = $self->_order_plugins(@plugins);
   my $total = scalar @plugins;
   $log->info("Total plugins to be run: $total");
-  for (@plugins) {
-    my $pkg = "Cloudmin::Config::Plugin::$_";
-    load $pkg || die "Loading Plugin failed: $_";
+  for my $name (@plugins) {
+    my $pkg = "Cloudmin::Config::Plugin::$name";
+    load $pkg || die "Loading Plugin failed: $name";
     my $plugin = $pkg->new(total => $total, bundle => $self->{bundle});
-    $plugin->actions();
+    my $ok = eval { $plugin->actions(); 1 };
+    # Add the plugin name to exceptions before stopping configuration.
+    if (!$ok) {
+      my $error = $@ || "Configuration failed";
+      $log->error("$name: $error");
+      die "$name: $error";
+    }
+    # Run optional checks only after the plugin finishes successfully.
     if ($self->{test} && $plugin->can('tests')) {
       $plugin->tests();
     }
@@ -67,8 +75,7 @@ sub run {
   return 1;
 }
 
-# list_bundles
-# Returns a list of the available configuration bundles.
+# list_bundles(self) Returns sorted bundle names from the installed tree.
 sub list_bundles {
   my $self = shift;
 
@@ -76,17 +83,17 @@ sub list_bundles {
   my $modpath = $INC{'Cloudmin/Config.pm'};
   use File::Basename;
   my $bundlepath = dirname($modpath) . '/Config';
-  opendir(my $DIR, $bundlepath);
+  opendir(my $DIR, $bundlepath) or die "Cannot list bundles: $!\n";
   my @bundles = grep(/\.pm$/, readdir($DIR));
   closedir($DIR);
-  @bundles = grep { $_ ne 'Dummy.pm' && $_ ne 'Plugin.pm' } @bundles;
+  # Internal helpers share this directory but are not installation bundles.
+  @bundles = grep { $_ ne 'Plugin.pm' && $_ ne 'Libvirt.pm' } @bundles;
   for (@bundles) {s/\.pm$//}
   @bundles = sort(@bundles);
   return @bundles;
 }
 
-# list-plugins
-# Returns a sorted list of the available plugins.
+# list_plugins(self) Returns sorted plugin names from the installed tree.
 sub list_plugins {
   my $self = shift;
 
@@ -95,98 +102,81 @@ sub list_plugins {
   my $modpath = $INC{'Cloudmin/Config/Plugin.pm'};
   use File::Basename;
   my $pluginpath = dirname($modpath) . '/Plugin';
-  opendir(my $DIR, $pluginpath);
+  opendir(my $DIR, $pluginpath) or die "Cannot list plugins: $!\n";
   my @plugins = grep(/\.pm$/, readdir($DIR));
   closedir($DIR);
-  @plugins = grep { $_ ne 'Test.pm' && $_ ne 'Test2.pm' } @plugins;
   for (@plugins) {s/\.pm$//}
   @plugins = sort(@plugins);
   return @plugins;
 }
 
-# Merges the selected bundle, with any extra includes, and removes excludes
+# _gather_plugins(self) Resolves bundle selection and explicit exclusions.
 sub _gather_plugins {
-  my $self = shift;
+  my ($self) = @_;
   my @plugins;
-
-  # If bundle specified, load it up.
+  # A named bundle supplies the initial plugin selection.
   if ($self->{bundle}) {
+    _valid_name($self->{bundle});
     my $pkg = "Cloudmin::Config::$self->{bundle}";
     load $pkg;
-    my $bundle = $pkg->new();
-
-    # Ask the bundle for a list of plugins
-    @plugins = $bundle->plugins();
+    @plugins = _flat($pkg->new()->plugins());
   }
-
-  # Check with the command arguments
-  if (ref($self->{include}) eq 'ARRAY' || ref($self->{include}) eq 'STRING') {
-    for my $include ($self->{'include'}) {
-      push(@plugins, $include)
-        unless (map { grep(/^$include$/, @{$_}) } @plugins);
-    }
-  }
-
-  # Check for excluded plugins
-  my @noplugins = _flat($self->{'exclude'});
-  if (@noplugins) {
-    @plugins = _flat(@plugins);
-    no warnings "uninitialized";
-    @plugins = grep { my $noplugin = $_; !grep( /^$noplugin$/, @noplugins) } @plugins;
-  }
-  return @plugins;
+  # Merge explicit names and exclusions without changing their order.
+  push @plugins, _flat($self->{include});
+  my %excluded = map { _valid_name($_); $_ => 1 } _flat($self->{exclude});
+  # Installation must finish with the full readiness check.
+  die "Readiness is required by the KVM bundle\n"
+    if ($self->{bundle} || '') eq 'KVM' && $excluded{Readiness};
+  return grep { !$excluded{$_} } _uniq(@plugins);
 }
 
-# Take the gathered list of plugins and sort them to resolve deps
+# _order_plugins(self, [names...]) Orders plugins and their dependencies.
+# Names may be scalars or array references; no actions run here.
 sub _order_plugins {
   my ($self, @plugins) = @_;
-  my %plugin_details;    # Will hold an array of hashes containing name/depends
-                         # Load up @plugin_details with name and dependency list
-  if (ref($plugins[0]) eq 'ARRAY') {    # XXX Why is this so stupid?
-    @plugins = map {@$_} @plugins;      # Flatten the array of refs into list.
-  }
-  for my $plugin_name (@plugins) {
-    my $pkg = "Cloudmin::Config::Plugin::$plugin_name";
+  my %excluded = map { $_ => 1 } _flat($self->{exclude});
+  my (%visiting, %done, @ordered);
+  my $visit;
+  # visit(name) Adds each dependency before the plugin that requires it.
+  $visit = sub {
+    my ($name) = @_;
+    _valid_name($name);
+    # Dependencies cannot override an explicit exclusion.
+    die "Required plugin $name was excluded\n" if $excluded{$name};
+    # Revisiting the current path is a cycle; completed branches are safe.
+    die "Dependency cycle at $name\n" if $visiting{$name};
+    return if $done{$name};
+    # Load metadata, visit dependencies, then mark this plugin complete.
+    my $pkg = "Cloudmin::Config::Plugin::$name";
     load $pkg;
-    my $plugin = $pkg->new();
-    $plugin_details{$plugin->{'name'}} = $plugin->{'depends'} || [];
-  }
-  return _topo_sort(%plugin_details);
+    $visiting{$name} = 1;
+    $visit->($_) for @{$pkg->new()->depends() || []};
+    delete $visiting{$name};
+    $done{$name} = 1;
+    push @ordered, $name;
+  };
+  $visit->($_) for _flat(@plugins);
+  undef $visit; # Release the recursive closure after resolving the graph.
+  return @ordered;
 }
 
-# Topological sort on dependencies
-sub _topo_sort {
-  my (%deps) = @_;
-
-  my %ba;
-  while (my ($before, $afters_aref) = each %deps) {
-    unless (@{$afters_aref}) {
-      $ba{$before} = {};
-    }
-    for my $after (@{$afters_aref}) {
-      $ba{$before}{$after} = 1 if $before ne $after;
-      $ba{$after} ||= {};
-    }
-  }
-  my @rv;
-  while (my @afters = sort grep { !%{$ba{$_}} } keys %ba) {
-    push @rv, @afters;
-    delete @ba{@afters};
-    delete @{$_}{@afters} for values %ba;
-  }
-
-  return _uniq(@rv);
+# _valid_name(name) Rejects paths and arbitrary Perl package expressions.
+sub _valid_name {
+  my ($name) = @_;
+  die "Invalid plugin or bundle name\n"
+    unless defined($name) && $name =~ /\A[A-Za-z][A-Za-z0-9]*\z/;
+  return $name;
 }
 
-# uniq so we don't have to import List::MoreUtils
+# _uniq([values...]) Preserves the first occurrence of each plugin name.
 sub _uniq {
   my %seen;
   return grep { !$seen{$_}++ } @_;
 }
 
-# Flatten into plain list
+# _flat([values...]) Flattens names and nested array references, skipping undef.
 sub _flat {
-  return map {ref eq 'ARRAY' ? @$_ : $_} @_;
+  return map { ref($_) eq 'ARRAY' ? _flat(@$_) : $_ } grep { defined } @_;
 }
 
 1;
@@ -195,114 +185,25 @@ __END__
 
 =pod
 
-=encoding utf8
-
-=for html <a href="https://travis-ci.org/virtualmin/Cloudmin-Config">
-<img src="https://travis-ci.org/virtualmin/Cloudmin-Config.svg?branch=master">
-</a>&nbsp;
-<a href='https://coveralls.io/github/virtualmin/Cloudmin-Config?branch=master'>
-<img src='https://coveralls.io/repos/github/virtualmin/Cloudmin-Config/badge.svg?branch=master'
-alt='Coverage Status' /></a>
-
-
 =head1 NAME
 
-Cloudmin::Config - A collection of plugins to initialize the configuration
-of services that Cloudmin manages, and a command line tool called
-config-system to run them. It can be thought of as a very specialized
-configuration management system (e.g. puppet, chef, whatever) for doing
-just one thing (setting up a system for Cloudmin). It has basic dependency
-resolution (via topological sort), logging, and ties into the Webmin API to
-make some common tasks (like starting/stopping services, setting them to run
-on boot) simpler to code.
+Cloudmin::Config - Configure a Cloudmin KVM host
 
 =head1 SYNOPSIS
 
-    my $bundle = Cloudmin::Config->new(bundle	=> 'KVM');
-    $bundle->run();
-
-You can also call it with specific plugins, rather than a whole bundle of
-plugins.
-
-    my $plugin = Cloudmin::Config->new(include => 'FirewallD');
-    $plugin->run();
-
-Adding new features to the installer, or modifying installer features, should
-be done by creating new plugins or by adding to existing ones.
+    Cloudmin::Config->new(bundle => 'KVM')->run();
 
 =head1 DESCRIPTION
 
-This is a mini-framework for configuring elements of a Cloudmin system. It
-uses Webmin as a library to abstract common configuration tasks, provides a
-friendly status indicator, and makes it easy to pick and choose the kind of
-configuration you want (should you choose to go that route). The Cloudmin
-install script chooses KVM bundle, and performs the  configuration for the
-whole stack.
-
-It includes plugins for all of the common tasks in a Cloudmin system, such
-as virtualization management tools, and support services like BIND and network
-configuration.
-
-=head1 INSTALLATION
-
-The recommended installation method is to use native packages for your
-distribution. We provide packages for Debian, Ubuntu, CentOS/RHEL, and Fedora
-in our repositories.
-
-You can use the standard Perl process to install from the source tarball or
-git clone:
-
-    perl Makefile.PL
-    make
-    make test
-    make install
-
-Or, use your system native package manager. The following assumes you have all
-of the packages needed to build native packages installed.
-
-To build a dpkg for Debian/Ubuntu:
-
-    dpkg-buildpackage -b -rfakeroot -us -uc
-
-And, for CentOS/Fedora/RHEL/etc. RPM distributions:
-
-    dzil build # Creates a tarball
-    cp Cloudmin-Config-*.tar.gz ~/rpmbuild/SOURCES
-    rpmbuild -bb cloudmin-config.spec
-
-=head1 ATTRIBUTES
-
-=over
-
-=item bundle
-
-Selects the plugin bundle to be installed. A bundle is a list of plugins
-configured in a C<Cloudmin::Config::*> class.
-
-=item include
-
-One or more additional plugins to include in the C<run()>. This can be
-used alongside C<bundle> or by itself. Dependencies will also be run, and
-there is no way to disable dependencies (because they're depended on!).
-
-=item exclude
-
-One or more plugins to remove from the selected C<bundle>. Plugins that are
-needed to resolve dependencies will be re-added automatically.
-
-=back
-
-=head1 METHODS
-
-=over
-
-=item run
-
-This method figures out which plugins to run (based on the C<bundle>,
-C<include>, and C<exclude> attributes.
-
-=back
+Loads configuration plugins and their dependencies before executing them in
+order. Excluded dependencies, cycles and plugin failures stop configuration.
+See README.pod for supported hosts, installation and testing instructions.
 
 =head1 LICENSE AND COPYRIGHT
 
-Licensed under the GPLv3. Copyright 2017-2025, Joe Cooper <joe@virtualmin.com>
+Licensed under the GPLv3. Copyright 2017-2026 Cloudmin, LLC.
+
+Authors: Ilia Ross <ilia@webmin.dev>, Joe Cooper <joe@webmin.com>,
+and Jamie Cameron <jamie@webmin.com>.
+
+=cut

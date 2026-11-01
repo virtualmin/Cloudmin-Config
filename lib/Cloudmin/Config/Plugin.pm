@@ -37,24 +37,27 @@ sub name {
   return $self->{name};
 }
 
-# Return a ref to an array of plugins that have to run before this one.
-# Dep resolution is very stupid. Don't do anything complicated.
+# depends(self, [names]) Gets or sets the array reference of prerequisite names.
+# Without a new reference, retain the current dependencies.
 sub depends {
   my ( $self, $name ) = @_;
-  if ($name) { $self->{depends} = shift }
+  if ($name) { $self->{depends} = $name }
   return $self->{depends};
 }
 
-# Total number of plugins being run for running count
+# total(self, [count]) Gets or sets the plugin count used in progress output.
+# An omitted or zero count leaves the current value unchanged.
 sub total {
   my ( $self, $total ) = @_;
-  if ($total) { $self->{total} = shift }
+  if ($total) { $self->{total} = $total }
   return $self->{total};
 }
 
+# bundle(self, [name]) Gets or sets the selected bundle name.
+# An omitted or empty name leaves the selection unchanged.
 sub bundle {
   my ( $self, $bundle ) = @_;
-  if ($bundle) { $self->{bundle} = shift }
+  if ($bundle) { $self->{bundle} = $bundle }
   return $self->{bundle};
 }
 
