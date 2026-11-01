@@ -8,6 +8,7 @@ use lib "$FindBin::Bin/../../lib";
 use File::Temp qw(tempdir);
 use Test::More;
 use Cloudmin::Config::Plugin::Nftables;
+use Cloudmin::Config::Plugin::Readiness;
 # Refuse kernel firewall tests in the host's network namespace.
 $> == 0 && $^O eq 'linux' or die "Run this test as root on a disposable Linux VM\n";
 readlink('/proc/self/ns/net') ne readlink('/proc/1/ns/net')
@@ -68,5 +69,17 @@ $nftables::last_restart_time_flag = "$dir/restart-flag";
   ok(grep({ ($_->{comment} || '') eq 'webmin-nfs-client-tcp' } @{$saved[0]->{rules}}),
     'NFS client exception survives another profile rebuild');
 
+  # Exercise the final readiness gate against the migrated kernel table.
+  # Service state and worker boot checks have separate live fixtures.
+  local *Cloudmin::Config::Plugin::Readiness::require_unit = sub { 1 };
+  local *Cloudmin::Config::Plugin::Readiness::check_workers = sub { 1 };
+  local *Cloudmin::Config::Plugin::Readiness::run_command = sub {
+    my ($self, $command) = @_;
+    # Keep this fixture focused on the real nft command, not Fail2ban jails.
+    return 1 if $command =~ /^fail2ban-client /;
+    return Cloudmin::Config::Plugin::run_command($self, $command);
+  };
+  my $ready = Cloudmin::Config::Plugin::Readiness->new();
+  ok(eval { $ready->actions(); 1 }, 'readiness finds the migrated profile table') or diag $@;
 }
 done_testing();
