@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use 5.010_001;
 use POSIX;
+use Cwd ();
 use Cloudmin::Config;
 use Time::HiRes qw( sleep );
 use feature 'state';
@@ -105,6 +106,7 @@ sub done {
   }
 }
 
+# root(self) Finds the installed Webmin tree from its server configuration.
 sub root {
   my $self = shift;
 
@@ -120,21 +122,114 @@ sub root {
     }
   }
   close($CONF);
-  $root ||= "/usr/libexec/webmin";
+  # Require the actual installed core instead of guessing a fallback path.
+  defined($root) && -f "$root/WebminCore.pm"
+    or die "Webmin installation root is missing or invalid\n";
 
   return $root;
 }
 
-# logsystem(command)
-# Similar to system() or backticks but with logging.
-# Runs a single system command, and returns the result code.
+# logsystem(self, command) Logs shell output and returns the raw wait status.
 sub logsystem {
   my $self = shift;
   my $cmd  = shift;
 
   my $res = `$cmd 2>&1` // "[]";
-  $log->info("Code: $? Result: $res");
-  return $?;
+  # Logging may run commands too, so preserve the original status first.
+  my $status = $?;
+  $log->info("Code: $status Result: $res");
+  return $status;
+}
+
+# use_webmin(self) Imports Webmin APIs into the calling plugin, once per package.
+sub use_webmin {
+  my ($self) = @_;
+  state %ready;
+  # Webmin checks this process-wide flag, not the calling package variable.
+  $main::error_must_die = 1;
+  # The package enters an eval string; accept only a Perl package name.
+  my $pkg = caller;
+  die "Invalid caller package\n" unless $pkg =~ /\A[A-Za-z_]\w*(?:::\w+)*\z/;
+  # Imports and configuration globals are initialized once per caller.
+  return 1 if $ready{$pkg};
+  # Webmin resolves module paths from its working directory and script name.
+  my $root = $self->root();
+  my $cwd = Cwd::getcwd();
+  chdir($root) or die "Cannot enter $root: $!\n";
+  $0 = "$root/server-manager/config-system.pl";
+  for my $dir ($root, "$root/vendor_perl") {
+    push @INC, $dir unless grep { $_ eq $dir } @INC;
+  }
+  # Import into the plugin package so its unqualified Webmin calls work.
+  my $ok = eval "package $pkg; our \$trust_unknown_referers = 1; ".
+    'our $error_must_die = 1; require WebminCore; WebminCore->import(); '.
+    'init_config(); 1;';
+  # Restore the caller's directory before propagating initialization errors.
+  my $error = $@;
+  chdir($cwd) or die "Cannot return to $cwd: $!\n";
+  die "Cannot initialize Webmin: $error" unless $ok;
+  $ready{$pkg} = 1;
+  return 1;
+}
+
+# run_command(self, command) Stops configuration when an external command fails.
+sub run_command {
+  my ($self, $command) = @_;
+  $self->logsystem($command) == 0 or die "Command failed: $command (see log)\n";
+  return 1;
+}
+
+# systemd_state(self, unit) Reads fresh unit state through Webmin's systemd API.
+sub systemd_state {
+  my ($self, $unit) = @_;
+  $self->use_webmin();
+  foreign_require('systemd', 'systemd-lib.pl');
+  # Older Webmin releases cannot provide the required live unit state.
+  defined &systemd::get_unit_state
+    or die "Update Webmin: the systemd get_unit_state API is required\n";
+  my ($state, $error) = systemd::get_unit_state($unit);
+  die "Cannot inspect $unit: $error\n" if $error;
+  return $state;
+}
+
+# systemd_action(self, action, unit) Executes a native unit action and checks it.
+sub systemd_action {
+  my ($self, $action, $unit) = @_;
+  $action =~ /\A(?:start|stop|restart|enable|disable)\z/
+    or die "Invalid systemd action\n";
+  $self->use_webmin();
+  foreign_require('systemd', 'systemd-lib.pl');
+  # Dispatch only the allowed actions and retain Webmin's failure details.
+  no strict 'refs';
+  my ($ok, $error) = &{"systemd::${action}_unit"}($unit);
+  die "Failed to $action $unit: $error\n" unless $ok;
+  return 1;
+}
+
+# require_unit(self, unit, [active], [enabled]) Requires an installed unit.
+# True optional flags also require active state and startup at boot.
+sub require_unit {
+  my ($self, $unit, $active, $enabled) = @_;
+  my $state = $self->systemd_state($unit);
+  $state->{LoadState} eq 'loaded' or die "Required systemd unit is unavailable: $unit ($state->{LoadState})\n";
+  !$active || $state->{ActiveState} eq 'active' or die "$unit is not active\n";
+  !$enabled || $state->{UnitFileState} eq 'enabled' or die "$unit is not enabled at boot\n";
+  return 1;
+}
+
+# write_config(self, path, content) Replaces an installer-owned file atomically.
+sub write_config {
+  my ($self, $path, $content) = @_;
+  require File::Temp;
+  require File::Basename;
+  # A temporary file beside the destination keeps the final rename atomic.
+  my ($fh, $tmp) = File::Temp::tempfile('.cloudmin-XXXXXX',
+    DIR => File::Basename::dirname($path), UNLINK => 1);
+  print {$fh} $content or die "Cannot write $tmp: $!\n";
+  close($fh) or die "Cannot close $tmp: $!\n";
+  chmod(0644, $tmp) or die "Cannot set permissions on $tmp: $!\n";
+  rename($tmp, $path) or die "Cannot replace $path: $!\n";
+  return 1;
 }
 
 sub spinner {
