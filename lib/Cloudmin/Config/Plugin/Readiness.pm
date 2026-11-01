@@ -26,7 +26,7 @@ sub check_workers {
   close($disk) or die "Cannot close test disk: $!\n";
   # Boot the isolated appliance too: /dev/kvm and qemu-img alone do not prove
   # nested virtualization or the distribution's libguestfs tools work.
-  $self->spin('Booting isolated KVM appliance (3-minute timeout)');
+  $self->spin('Booting isolated KVM appliance');
   my $info = eval { $worker->run('inspect', { format => 'raw', appliance => 1 },
     files => { image => "$dir/probe.raw" }); };
   if (!$info) {

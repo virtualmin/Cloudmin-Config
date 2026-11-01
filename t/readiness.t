@@ -42,7 +42,7 @@ ok($ready->check_workers(), 'successful appliance boot passes readiness');
 is_deeply($Cloudmin::Worker::request, { format => 'raw', appliance => 1 },
   'readiness requests a real appliance boot with no workaround options');
 is($Cloudmin::Worker::probe_size, 65536, 'readiness uses a small disposable disk');
-like($ready->{messages}[-1], qr/Booting.*3-minute timeout/, 'progress explains the boot wait');
+is($ready->{messages}[-1], 'Booting isolated KVM appliance', 'progress omits the timeout detail');
 
 # Preserve different failures without claiming that every host has the UTM bug.
 for my $error ("Image worker timed out\n", "Cannot open /dev/kvm\n") {
