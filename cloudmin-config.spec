@@ -1,20 +1,28 @@
 Name:           cloudmin-config
-Version:        1.0.0
+Version:        10.0.0
 Release:        1
 Summary:        Collection of plugins to initialize the configuration of services that Cloudmin manages, and a command line tool called config-system to run them
-License:        GPL+
+License:        GPLv3
+Vendor:         Cloudmin, LLC
+Packager:       Ilia Ross <ilia@webmin.dev>
 Group:          Development/Libraries
 URL:            https://github.com/virtualmin/Cloudmin-Config/
 Source0:        Cloudmin-Config-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:      noarch
-BuildRequires:  perl >= 0:5.016
+BuildRequires:  perl >= 0:5.026
 BuildRequires:  perl(ExtUtils::MakeMaker)
 BuildRequires:  perl(File::Spec)
 BuildRequires:  perl(Log::Log4perl)
 BuildRequires:  perl(Test::More)
-BuildRequires:	perl(Module::Load)
-Requires:	      webmin
+BuildRequires:  perl(Module::Load)
+BuildRequires:  perl(XML::LibXML)
+BuildRequires:  perl(Sys::Virt)
+Requires:       webmin >= 2.670
+Requires:       webmin-server-manager
+Requires:       perl(Sys::Virt)
+Requires:       perl(XML::LibXML)
+Requires:       perl(JSON::PP)
 Requires:       perl(Log::Log4perl)
 Requires:       perl(Term::ANSIColor)
 Requires:	      perl(Module::Load)
@@ -46,15 +54,16 @@ find $RPM_BUILD_ROOT -depth -type d -exec rmdir {} 2>/dev/null \;
 
 %{_fixperms} $RPM_BUILD_ROOT/*
 
-#%check
-#make test
+# Unit tests model system actions; live service tests run separately.
+%check
+make test
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%doc dist.ini LICENSE META.json README
+%doc LICENSE README.pod
 %{perl_vendorlib}/*
 %{_mandir}/man1/*
 %{_mandir}/man3/*
@@ -62,5 +71,5 @@ rm -rf $RPM_BUILD_ROOT
 /usr/libexec/webmin/server-manager/config-system.pl
 
 %changelog
-* Sat Feb 04 2023 Joe Cooper <joe@virtualmin.com> 1.0.0
-- Initial packaging
+* Sun Nov 01 2026 Ilia Ross <ilia@webmin.dev> 10.0.0-1
+- Add Cloudmin 10 support with native libvirt integration

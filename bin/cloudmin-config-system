@@ -129,6 +129,9 @@ Returns 0 on success and a nonzero status on failure.
 
 =head1 LICENSE AND COPYRIGHT
 
-Licensed under the GPLv3. Copyright 2017-2025, Joe Cooper <joe@virtualmin.com>
+Licensed under the GPLv3. Copyright 2017-2026 Cloudmin, LLC.
+
+Authors: Ilia Ross <ilia@webmin.dev>, Joe Cooper <joe@webmin.com>,
+and Jamie Cameron <jamie@webmin.com>.
 
 =cut

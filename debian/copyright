@@ -1,9 +1,12 @@
 Format-Specification: http://anonscm.debian.org/viewvc/dep/web/deps/dep5.mdwn?view=markup&pathrev=135
-Maintainer: Joe Cooper <joe@virtualmin.com>
+Maintainer: Ilia Ross <ilia@webmin.dev>
+Upstream-Contact: Ilia Ross <ilia@webmin.dev>
+ Joe Cooper <joe@webmin.com>
+ Jamie Cameron <jamie@webmin.com>
 Source: http://search.cpan.org/dist/Cloudmin-Config/
 Name: Cloudmin-Config
 Files: *
-Copyright: Joe Cooper <joe@virtualmin.com>
+Copyright: 2017-2026 Cloudmin, LLC
 License: GPL-3+
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
