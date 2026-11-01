@@ -3,11 +3,12 @@ use strict;
 use warnings;
 use 5.010_001;
 use Getopt::Long;
-BEGIN { $Pod::Usage::Formatter = 'Pod::Text::Color'; }
 use Pod::Usage qw(pod2usage);
 use Term::ANSIColor qw(:constants);
 use Cloudmin::Config;
 
+# main(argv) Lists components or runs configuration from command-line options.
+# argv is the process argument reference; GetOptions reads @ARGV directly.
 sub main {
   my ($argv) = @_;
   my %opt;
@@ -17,7 +18,9 @@ sub main {
     'list-plugins|p',
     'include|i=s{1,}' => \@include,
     'exclude|x=s{1,}' => \@exclude,
-  );
+  ) or return 1;
+  # Reject leftover arguments before listing or configuring anything.
+  die "Unexpected arguments: @ARGV\n" if @ARGV;
   pod2usage(0) if $opt{help};
   if ($opt{'list-bundles'}) {
     my $config  = Cloudmin::Config->new();
@@ -62,6 +65,8 @@ sub main {
     test    => $opt{test},
   );
 
+  # Listing and help need no privileges; configuration changes the host.
+  die "Run cloudmin-config-system as root\n" if $> != 0;
   $bundle->run();
 
   return 0;
@@ -77,7 +82,7 @@ Perform initial configuration of system services and virtualization
 
 =head1 SYNOPSIS
 
-cloudmin config-system [options]
+cloudmin-config-system [options]
 
   Options:
     --help|-h          Print this summary of options and exit
@@ -95,9 +100,8 @@ cloudmin config-system [options]
 
 =item --bundle
 
-A set of configuration options, to initialize the system for use as a Cloudmin
-system. Default plugin bundle is "KVM", which configures KVM virtualization, as 
-well as a variety of other components.
+Run a named bundle of configuration plugins. Use C<--bundle KVM> to configure
+a Cloudmin KVM host. Specify a bundle or select plugins with C<--include>.
 
 =item --include
 
@@ -108,8 +112,8 @@ will be installed.
 
 =item --exclude
 
-Exclude one or more plugins from either the default bundle, if no  bundle is
-specified, or from the bundle specified.
+Exclude one or more plugins from the selected bundle or explicit includes.
+Required dependencies and the KVM readiness check cannot be excluded.
 
 =item --test
 
@@ -121,7 +125,7 @@ make the process take a long time. Disabled by default.
 
 =head1 EXIT CODES
 
-Returns 0 on success, 1 on failure.
+Returns 0 on success and a nonzero status on failure.
 
 =head1 LICENSE AND COPYRIGHT
 
