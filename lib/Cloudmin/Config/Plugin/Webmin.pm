@@ -3,54 +3,66 @@ use strict;
 use warnings;
 no warnings qw(once);
 use parent 'Cloudmin::Config::Plugin';
-
 our $config_directory;
-our (%gconfig, %miniserv);
-our $trust_unknown_referers = 1;
+our %gconfig;
 
+# new(class, [options]) Configures Webmin only on an accepted host.
 sub new {
   my ($class, %args) = @_;
-
-  # inherit from Plugin
-  my $self = $class->SUPER::new(name => 'Webmin', %args);
-
-  return $self;
+  return $class->SUPER::new(name => 'Webmin', depends => ['Platform'], %args);
 }
 
-# Actions method performs whatever configuration is needed for this
-# plugin. TODO Needs to make a backup so changes can be reverted.
+# actions(self) Applies Cloudmin settings and refreshes the module inventory.
 sub actions {
-  my $self = shift;
-
-  use Cwd;
-  my $cwd  = getcwd();
-  my $root = $self->root();
-  chdir($root);
-  $0 = "$root/server-manager/config-system.pl";
-  push(@INC, $root);
-  eval 'use WebminCore';    ## no critic
-  init_config();
-
+  my ($self) = @_;
+  $self->use_webmin();
   $self->spin();
-  eval {
-    foreign_require("webmin", "webmin-lib.pl");
-    $gconfig{'nowebminup'}   = 1;
-    $gconfig{'theme'}        = "authentic-theme";
-    $gconfig{'mobile_theme'} = "authentic-theme";
-    $gconfig{'logfiles'}     = 1;
-    write_file("$config_directory/config", \%gconfig);
-    get_miniserv_config(\%miniserv);
-    $miniserv{'preroot'}         = "authentic-theme";
-    $miniserv{'ssl'}             = 1;
-    $miniserv{'ssl_cipher_list'} = $webmin::strong_ssl_ciphers;
-    put_miniserv_config(\%miniserv);
-    webmin::build_installed_modules(1);
-    system("/etc/webmin/restart-by-force-kill > /dev/null 2>&1");
-    $self->done(1);    # OK!
-  };
-  if ($@) {
-    $self->done(0);    # NOK!
+  foreign_require('webmin', 'webmin-lib.pl');
+  # Use package updates and record configuration-file changes.
+  my $changed = 0;
+  for my $setting (qw(nowebminup logfiles)) {
+    if (($gconfig{$setting} || 0) != 1) {
+      $gconfig{$setting} = 1;
+      $changed = 1;
+    }
   }
+  # VM image uploads must not fill a small memory-backed /tmp filesystem.
+  if (!$gconfig{tempdir}) {
+    $gconfig{tempdir} = '/var/tmp/.webmin';
+    $gconfig{tempdirdelete} = 1;
+    $changed = 1;
+  }
+  # CGI requests read these settings directly; no server restart is needed.
+  if ($changed) {
+    lock_file("$config_directory/config");
+    write_file("$config_directory/config", \%gconfig);
+    unlock_file("$config_directory/config");
+  }
+  {
+    # Module checks may reload libraries already imported by other plugins.
+    my $webmin_root = $self->root();
+    my $warning_handler = $SIG{__WARN__};
+    local $SIG{__WARN__} = sub {
+      my $warning = join('', @_);
+      return if $warning =~
+        m{\ASubroutine \S+ redefined at \Q$webmin_root\E/[^/]+/[^/]+-lib\.pl line \d+\.\n?\z};
+      local $SIG{__WARN__} = $warning_handler;
+      warn @_;
+    };
+    webmin::build_installed_modules(1);
+  }
+  # Offer TOTP on new installs while preserving an existing provider or opt-out.
+  my %miniserv;
+  lock_file("$config_directory/miniserv.conf");
+  get_miniserv_config(\%miniserv);
+  my $setup_twofactor = !defined($miniserv{twofactor_provider});
+  if ($setup_twofactor) {
+    $miniserv{twofactor_provider} = 'totp';
+    put_miniserv_config(\%miniserv);
+  }
+  unlock_file("$config_directory/miniserv.conf");
+  webmin::restart_miniserv() if $setup_twofactor;
+  $self->done(1);
 }
 
 1;
