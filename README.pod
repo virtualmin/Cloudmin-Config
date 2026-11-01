@@ -1,107 +1,142 @@
-=pod
-
-=encoding utf8
-
 =head1 NAME
 
-Cloudmin::Config - A collection of plugins to initialize services for use
-with Cloudmin, and a command line tool called config-system to run them.
+Cloudmin::Config - Configure and verify a Cloudmin KVM host
 
-It can be thought of as a very specialized configuration management system
-(e.g. puppet, chef, whatever) for doing just one thing (setting up a system
-for Cloudmin). It has basic dependency resolution (via topological sort),
-logging, and ties into the Webmin API to make some common tasks (like
-starting/stopping services, setting them to run on boot) simpler to code.
+=head1 SUPPORTED HOSTS
 
-=head1 SYNOPSIS
+Supported systems are Rocky Linux 10, AlmaLinux 10, Debian 13 and Ubuntu 26.04
+on x86-64 or ARM64. Packages come from the distribution, with EPEL on
+Rocky/AlmaLinux and universe on Ubuntu. Hardware virtualization must be
+available through C</dev/kvm>. When installing inside a VM, enable nested
+virtualization in its hypervisor.
 
-    my $bundle = Cloudmin::Config->new(bundle => 'KVM');
-    $bundle->run();
+When C</usr/sbin/virtqemud> is executable, setup uses modular libvirt and
+requires all its services and sockets. Otherwise it uses C<libvirtd>.
+Setup refuses to switch an active C<libvirtd> installation to modular daemons.
 
-You can also call it with specific plugins, rather than a whole bundle of
-plugins.
+=head1 USAGE
 
-    my $plugin = Cloudmin::Config->new(include => 'CGroups');
-    $plugin->run();
+    cloudmin-config-system --bundle KVM
+    cloudmin-config-system --list-plugins
 
-Adding new features to the installer, or modifying installer features, should
-be done by creating new plugins or by adding to existing ones.
+The installer runs this tool after installing dependencies. Use a fresh
+host for installation. Rerunning configuration preserves existing libvirt
+network and pool definitions. Migrate libvirt daemons separately before
+changing layouts.
 
-=head1 DESCRIPTION
+The KVM bundle performs these steps:
 
-This is a mini-framework for configuring elements of a Cloudmin system. It
-uses Webmin as a library to abstract common configuration tasks, provides a
-friendly status indicator, and makes it easy to pick and choose the kind of
-configuration you want (should you choose to go that route). The Cloudmin
-install script chooses KVM bundle, and performs the  configuration for the
-whole stack.
+=over
 
-It includes plugins for all of the common tasks in a Cloudmim installation, 
-such as CGroups, KVM, NTP, BIND, etc.
+=item * Check the host OS, architecture, systemd and KVM device.
 
-=head1 INSTALLATION
+=item * Set up Etckeeper to track changes in C</etc>. On Rocky Linux and
+AlmaLinux, initialize history and enable daily commits. Debian and Ubuntu
+packages handle this setup. Existing history and the chosen VCS are preserved.
 
-The recommended installation method is to use native packages for your
-distribution. We provide packages for Debian, Ubuntu, CentOS/RHEL, and Fedora
-in our repositories.
+=item * Use Webmin's systemd API to start libvirt services and sockets and
+enable them at boot.
 
-You can use the standard Perl process to install from the source tarball or
-git clone:
+=item * Start a persistent default NAT network, or define 192.168.122.0/24 if
+no default network exists. Reject overlapping host routes before activation.
+
+=item * Start the default storage pool, or create it if no pool is active.
+Create and remove a sparse test volume in the standard local directory pool.
+Preserve existing custom pools.
+
+=item * Verify that libvirt can select packaged EFI firmware.
+
+=item * Keep Webmin upgrades under package management, enable file-change logging
+and set upload storage.
+Offer TOTP enrollment when no two-factor provider has been selected. Preserve
+HTTPS, cipher and theme settings, and rely on the package for startup at boot.
+Restart Webmin only when enabling TOTP enrollment.
+
+=item * Configure nftables through Webmin's Cloudmin virtualization host profile.
+The table is named C<webmin_profile_virtualization>. Only host input
+is filtered; libvirt keeps control of forwarding and NAT. Guest DNS and DHCP
+are allowed on libvirt bridges. Other saved tables are retained.
+
+Saved IPv4 NFS client rules marked C<webmin-nfs-client-tcp> or
+C<webmin-nfs-client-udp> survive profile rebuilds. They must be source-restricted
+input accept rules for TCP ports 111, 2049 or 20048, or UDP ports 111 or 20048.
+Existing C<cloudmin> tables migrate to the new name, retaining those NFS rules.
+The old active table is removed only after the new rules are applied.
+Other custom rules inside the generated table are replaced by the profile.
+
+=item * Enable Fail2ban SSH and Webmin jails with nftables actions and the
+systemd journal backend.
+
+=item * Check required services, modules and tools. Test SSH key generation
+and disk inspection with temporary data using Cloudmin's isolated workers.
+
+=back
+
+The worker checks test process isolation, qemu-img access and a libguestfs
+appliance boot using KVM. They require the running kernel, its modules,
+bsdtar and KVM group access. The appliance worker gets a private kernel
+copy; host kernel permissions stay unchanged. If the appliance cannot boot,
+installation stops.
+
+The boot check runs on every supported system with a three-minute worker
+timeout. It uses normal KVM settings, leaves guest interrupt settings unchanged
+and does not fall back to software emulation. Kernel or hypervisor updates
+may resolve a boot failure. Passing verifies appliance boot, not every guest
+workload.
+
+Previous tests found an appliance boot failure with Ubuntu kernel 7.0.0-34
+under ARM64 Apple/UTM nested virtualization. A physical AMD x86-64 host running
+Ubuntu 26.04.1 with that kernel passed appliance and guest boot tests without
+workarounds. Physical ARM64 has not been tested. On an affected UTM host, use
+a tested Rocky Linux 10 or Debian 13 configuration, or retry after kernel or
+hypervisor updates. The error includes worker diagnostics because other boot
+failures may have different causes.
+
+Cloudmin does not install or configure BIND or Postfix. Install
+additional services separately and configure them through Webmin. The host
+firewall does not open public DNS or mail ports.
+
+=head1 PLUGINS AND FAILURES
+
+All shipped plugins belong to the KVM bundle: Platform, Etckeeper, KVM,
+Webmin, Nftables, Fail2ban and Readiness.
+
+The installer accepts comma-separated plugin names: C<--include Name,Name>.
+C<cloudmin-config-system> takes space-separated names: C<--include Name Name>
+or C<--exclude Name Name>. It resolves dependencies before running any plugin.
+Invalid names, missing plugins, dependency cycles and excluded requirements
+stop configuration.
+
+Failures in required services and readiness checks stop configuration and
+return a nonzero exit status. Etckeeper setup failures show a warning and
+allow configuration to continue. The warning includes the cause in the terminal
+and log; configuration history may be unavailable until it is resolved.
+The default log is C</root/cloudmin-install.log>; use C<--log> to change it.
+
+=head1 DEVELOPMENT
 
     perl Makefile.PL
     make
     make test
-    make install
 
-Or, use your system native package manager. The following assumes you have all
-of the packages needed to build native packages installed.
+Tests under C<t/*.t> simulate system actions. For live firmware, storage
+and worker checks, run C<perl t/live/readiness.pl> as root on a disposable
+supported host with Cloudmin installed. Firewall checks use a separate network
+namespace. Existing guests and the host firewall are left unchanged.
 
-To build a dpkg for Debian/Ubuntu:
+Publish the installer, configuration package, Cloudmin module, DEB meta
+packages and RPM groups together. The installer requires cloudmin-config 10.0.0
+or newer and Webmin 2.670 development packages with the nftables profile API.
 
-    dpkg-buildpackage -b -rfakeroot -us -uc
-
-And, for CentOS/Fedora/RHEL/etc. RPM distributions:
-
-    dzil build # Creates a tarball
-    cp Cloudmin-Config-*.tar.gz ~/rpmbuild/SOURCES
-    rpmbuild -bb cloudmin-config.spec
-
-=head1 ATTRIBUTES
-
-=over
-
-=item bundle
-
-Selects the plugin bundle to be installed. A bundle is a list of plugins
-configured in a C<Cloudmin::Config::*> class.
-
-=item include
-
-One or more additional plugins to include in the C<run()>. This can be
-used alongside C<bundle> or by itself. Dependencies will also be run, and
-there is no way to disable dependencies (because they're depended on!).
-
-=item exclude
-
-One or more plugins to remove from the selected C<bundle>. Plugins that are
-needed to resolve dependencies will be re-added automatically.
-
-=back
-
-=head1 METHODS
-
-=over
-
-=item run
-
-This method figures out which plugins to run (based on the C<bundle>,
-C<include>, and C<exclude> attributes.
-
-=back
+The package workflow builds DEB and RPM packages and runs the unit tests.
+Release builds use the tag version, with an optional leading C<v>. Manual
+release builds require a version such as C<10.0.0>. Development builds use the
+major and minor version from Makefile.PL followed by a build timestamp.
+Re-running a workflow increments the package revision.
 
 =head1 LICENSE AND COPYRIGHT
 
-Licensed under the GPLv3. Copyright 2017-2025 Cloudmin, LLC, Virtualmin, Inc.,
-Jamie Cameron <jcameron@webmin.com>, Joe Cooper <joe@virtualmin.com>
+Licensed under the GPLv3. Copyright 2017-2026 Cloudmin, LLC.
 
-=cut
+Authors: Ilia Ross <ilia@webmin.dev>, Joe Cooper <joe@webmin.com>,
+and Jamie Cameron <jamie@webmin.com>.
