@@ -51,7 +51,7 @@ like($log, qr/\[ERROR\] - Clobber: fixture failed/, 'log identifies the plugin')
     die "History initialization failed\n";
   };
   my $output = '';
-  open(my $capture, '>', \$output) or die $!;
+  open(my $capture, '>:encoding(UTF-8)', \$output) or die $!;
   my $ok;
   {
     local *STDOUT = $capture;

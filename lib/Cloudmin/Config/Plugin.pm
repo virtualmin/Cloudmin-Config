@@ -67,11 +67,6 @@ sub spin {
   my ($self, $message) = @_;
   $message ||= 'Configuring '.$self->name();
   $log->info($message);
-  # Logs and redirected output stay readable without terminal controls.
-  if (!-t STDOUT) {
-    print "$message ...\n";
-    return;
-  }
   spinner('new');
   # A new message within the same plugin updates its current progress step.
   if (defined $self->{progress_step}) { print "\r\e[K"; }
@@ -88,22 +83,21 @@ sub done {
   # A successful result completes the current progress step.
   if ($result == 1) {
     $log->info('Succeeded');
-    if (-t STDOUT) { spinner('ok'); }
-    else { print "  Done\n"; }
+    spinner('ok');
   }
   # Warnings allow configuration to continue and remain visible in the log.
   elsif ($result == 2) {
     my $warning = $error || 'Completed with a warning; see the log';
     $warning =~ s/\s+$//;
     $log->warn($self->name().": $warning");
-    spinner('meh') if -t STDOUT;
+    spinner('meh');
     print "  Warning: $warning\n";
   }
   else {
     # All other results stop the run with the supplied or pending error.
     $error ||= $@ || $self->name().' configuration failed';
     $log->error($error);
-    spinner('nok') if -t STDOUT;
+    spinner('nok');
     die "$error\n";
   }
 }
@@ -242,8 +236,6 @@ sub spinner {
   state $schild;
   state $whitecolor;
 
-  # Avoid control sequences and child processes when output is redirected.
-  return if !-t STDOUT && !$schild;
   return if $cmd eq 'auto_done' && !$schild;
 
   # Do we have shades of white?
