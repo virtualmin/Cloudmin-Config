@@ -7,6 +7,7 @@ use lib "$FindBin::Bin/../lib";
 use Cloudmin::Config;
 use Cloudmin::Config::Plugin;
 use Cloudmin::Config::Plugin::Platform;
+use Cloudmin::Config::Plugin::KVM;
 
 # The installer and configuration tool support the same host versions.
 for my $id (qw(rocky almalinux)) {
@@ -28,4 +29,11 @@ for my $arch (qw(x86_64 aarch64)) {
   ok(!Cloudmin::Config::Plugin::Platform::supported('ubuntu', '24.04', $arch), 'Ubuntu 24.04 rejected');
 }
 
+# Network conflicts include subnets and host routes but not adjacent ranges.
+ok(Cloudmin::Config::Plugin::KVM::_overlap('192.168.122.1/24', '192.168.0.0/16'), 'broader route overlaps');
+ok(Cloudmin::Config::Plugin::KVM::_overlap('192.168.122.1/24', '192.168.122.3'), 'host route overlaps');
+ok(!Cloudmin::Config::Plugin::KVM::_overlap('192.168.122.1/24', '192.168.123.0/24'), 'adjacent range is safe');
+ok(!Cloudmin::Config::Plugin::KVM::_overlap('192.168.122.1/24', '10.0.0.0/8'), 'unrelated range is safe');
+eval { Cloudmin::Config::Plugin::KVM::_overlap('192.168.122.1/44', '10.0.0.0/8') };
+like($@, qr/Invalid/, 'invalid prefixes fail');
 done_testing();
