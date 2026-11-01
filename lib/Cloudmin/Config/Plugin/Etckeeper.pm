@@ -1,47 +1,41 @@
 package Cloudmin::Config::Plugin::Etckeeper;
 use strict;
 use warnings;
-no warnings qw(once);
 use parent 'Cloudmin::Config::Plugin';
 
-our (%gconfig, %miniserv);
-our $trust_unknown_referers = 1;
+our %gconfig;
 
+# new(class, [options]) Sets up configuration history after host checks.
 sub new {
   my ($class, %args) = @_;
-
-  # inherit from Plugin
-  my $self = $class->SUPER::new(name => 'Etckeeper', %args);
-
-  return $self;
+  return $class->SUPER::new(name => 'Etckeeper', depends => ['Platform'], %args);
 }
 
+# actions(self) Completes Etckeeper setup not handled by the OS package.
 sub actions {
-  my $self = shift;
-
-  use Cwd;
-  my $cwd  = getcwd();
-  my $root = $self->root();
-  chdir($root);
-  $0 = "$root/server-manager/config-system.pl";
-  push(@INC, $root);
-  eval 'use WebminCore';    ## no critic
-  init_config();
-
+  my ($self) = @_;
+  $self->use_webmin();
   $self->spin();
-
-  # Configure etckeeper on RHEL
-  if (&has_command('etckeeper')) {
-      if ($gconfig{'os_type'} eq 'redhat-linux') {
-        $self->logsystem("etckeeper init");
-        $self->logsystem("systemctl enable etckeeper.timer");
-        $self->logsystem("systemctl start etckeeper.timer");
-      }
-    $self->done(1);    # OK!
-  } else {
-    $self->done(2);    # Not installed but should have been
+  # Configuration history is useful, but its failure must not block setup.
+  my $ok = eval {
+    has_command('etckeeper') or die "Etckeeper is not installed\n";
+    # RPM packages need initialization and daily commits enabled explicitly.
+    if ($gconfig{'os_type'} eq 'redhat-linux') {
+      $self->run_command('etckeeper init');
+      $self->systemd_action('enable', 'etckeeper.timer');
+      $self->systemd_action('start', 'etckeeper.timer');
+      $self->require_unit('etckeeper.timer', 1, 1);
+    }
+    # Debian and Ubuntu packages initialize history and schedule commits.
+    # Keep their setup and any administrator choices unchanged.
+    1;
+  };
+  # Skip the remaining Etckeeper steps, report the cause and continue setup.
+  if (!$ok) {
+    my $error = $@ || 'Etckeeper setup failed';
+    return $self->done(2, $error);
   }
+  $self->done(1);
 }
 
 1;
-
