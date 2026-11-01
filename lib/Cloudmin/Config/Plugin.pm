@@ -58,51 +58,50 @@ sub bundle {
   return $self->{bundle};
 }
 
+# spin(self, [message]) Displays numbered configuration progress.
 sub spin {
   state $count = 1;
-  my $self    = shift;
-  my $name    = $self->name();
-  my $message = shift // "Configuring " . $name;
+  my ($self, $message) = @_;
+  $message ||= 'Configuring '.$self->name();
   $log->info($message);
-  spinner("new");
-  $message = "["
-    . YELLOW
-    . $count
-    . RESET . "/"
-    . GREEN
-    . $self->total()
-    . RESET . "] "
-    . $message;
-  my $color_correction = length( YELLOW . RESET . GREEN . RESET );
-  $count++;
-  $message =
-    $message
-    . " " x
-    ( 79 - length($message) - spinner("lastsize") + $color_correction );
-  print $message;
-  spinner("auto_start");
+  # Logs and redirected output stay readable without terminal controls.
+  if (!-t STDOUT) {
+    print "$message ...\n";
+    return;
+  }
+  spinner('new');
+  # A new message within the same plugin updates its current progress step.
+  if (defined $self->{progress_step}) { print "\r\e[K"; }
+  else { $self->{progress_step} = $count++; }
+  print '['.YELLOW.$self->{progress_step}.RESET.'/'.GREEN.$self->total().RESET.'] '.$message;
+  print "\e[K\e[77G";
+  spinner('auto_start');
 }
 
+# done(self, result, [error]) Shows the result and keeps failed checks fatal.
 sub done {
-  my $self = shift;
-  my $res  = shift;
+  my ($self, $result, $error) = @_;
   spinner('auto_done');
-  if ( $res == 1 ) {
-
-    # Success!
-    $log->info("Succeeded");
-    spinner("ok");
+  # A successful result completes the current progress step.
+  if ($result == 1) {
+    $log->info('Succeeded');
+    if (-t STDOUT) { spinner('ok'); }
+    else { print "  Done\n"; }
   }
-  elsif ( $res == 2 ) {
-
-    # Not quite OK
-    $log->warn("Non-fatal error");
-    spinner("meh");
+  # Warnings allow configuration to continue and remain visible in the log.
+  elsif ($result == 2) {
+    my $warning = $error || 'Completed with a warning; see the log';
+    $warning =~ s/\s+$//;
+    $log->warn($self->name().": $warning");
+    spinner('meh') if -t STDOUT;
+    print "  Warning: $warning\n";
   }
   else {
-    # Failure!
-    $log->warn("Failed");
-    spinner("nok");
+    # All other results stop the run with the supplied or pending error.
+    $error ||= $@ || $self->name().' configuration failed';
+    $log->error($error);
+    spinner('nok') if -t STDOUT;
+    die "$error\n";
   }
 }
 
@@ -232,6 +231,7 @@ sub write_config {
   return 1;
 }
 
+# spinner(command) Controls the terminal animation and result badges.
 sub spinner {
   my ($cmd) = @_;
   state $slastsize = 3;
@@ -239,76 +239,94 @@ sub spinner {
   state $schild;
   state $whitecolor;
 
+  # Avoid control sequences and child processes when output is redirected.
+  return if !-t STDOUT && !$schild;
+  return if $cmd eq 'auto_done' && !$schild;
+
   # Do we have shades of white?
   if (!$whitecolor) {
     my $colors = `tput colors 2>&1`;
     $whitecolor = 'white';
-    $whitecolor = 'bright_white'
-      if ($colors && $colors > 8);
+    $whitecolor = 'bright_white' if ($colors && $colors > 8);
   }
 
   # Is new spinner
-  $slastsize = 3, $pos = 1, $schild = undef, return
-    if ($cmd eq 'new');
+  if ($cmd eq 'new') {
+    if ($schild) {
+      kill 'KILL', $schild;
+      POSIX::waitpid($schild, 0);
+    }
+    $schild = undef;
+    $slastsize = 3;
+    $pos = 1;
+    return;
+  }
 
-  my $sseq =
-    [ qw(▒▒▒ █▒▒ ██▒ ███ ▒██ ▒▒█ ▒▒▒)
-    ];
+  my $sseq = [qw(▒▒▒ █▒▒ ██▒ ███ ▒██ ▒▒█ ▒▒▒)];
   my $sbksp = chr(0x08);
-  my $start = sub {print "\x1b[?25l"; $slastsize = 3; print colored("$sseq->[0]", 'cyan');};
-  my $done  = sub {print $sbksp x $slastsize; print "\x1b[?25h";};
-  my $ok    = sub {say colored(" ✔ ", "$whitecolor on_green");};
-  my $meh   = sub {say colored(" ⚠ ", "$whitecolor on_yellow");};
-  my $nok   = sub {say colored(" ✘ ", "$whitecolor on_red");};
+  my $start = sub {
+    print "\x1b[?25l";
+    $slastsize = 3;
+    print colored("$sseq->[0]", 'cyan');
+  };
+  my $done = sub { print "\x1b[?25h"; };
+  my $ok   = sub { print "\e[77G\e[K"; say colored(" ✔ ", "$whitecolor on_green"); };
+  my $meh  = sub { print "\e[77G\e[K"; say colored(" ⚠ ", "$whitecolor on_yellow"); };
+  my $nok  = sub { print "\e[77G\e[K"; say colored(" ✘ ", "$whitecolor on_red"); };
 
   my $next = sub {
-      print $sbksp x $slastsize;
-      print colored("$sseq->[$pos]", 'cyan');
-      $pos       = ++$pos % scalar @{$sseq};
-      $slastsize = length($sseq->[$pos]);
+    print $sbksp x $slastsize;
+    print colored("$sseq->[$pos]", 'cyan');
+    $pos       = ++$pos % scalar @{$sseq};
+    $slastsize = length($sseq->[$pos]);
   };
 
   # Fork and run spinner asynchronously, until signal received.
   my $auto_start = sub {
-      my $ppid = $$;
-      my $pid  = fork();
-      die("Failed to fork progress indicator.\n") unless defined $pid;
+    my $ppid = $$;
+    system('stty -echo 1>/dev/null 2>&1');
+    my $pid  = fork();
+    die("Failed to fork progress indicator.\n") unless defined $pid;
 
-      if ($pid) {    # Parent
-          $schild = $pid;
-          return;
-      } else {       # Kid stuff
-          &$start();
-          my $exists;
-          while (1) {
-              sleep 0.2;
-              &$next();
+    if ($pid) {    # Parent
+      $schild = $pid;
+      return;
+    }
+    else {         # Kid stuff
+      &$start();
+      my $exists;
+      while (1) {
+        sleep 0.2;
+        &$next();
 
-              # Check to be sure parent is still running, if not, die
-              $exists = kill 0, $ppid;
-              unless ($exists) {
-                  &$done();
-                  exit 0;
-              }
-              $exists = "";
-          }
-          exit 0;    # Should never get here?
+        # Check to be sure parent is still running, if not, die
+        $exists = kill 0, $ppid;
+        unless ($exists) {
+          &$done();
+          exit 0;
+        }
+        $exists = "";
       }
+      exit 0;    # Should never get here?
+    }
   };
 
   my $auto_done = sub {
-      kill 'KILL', $schild;
-      my $pid = wait();
-      &$done();
+    kill 'KILL', $schild if $schild;
+    system('stty echo 1>/dev/null 2>&1');
+    POSIX::waitpid($schild, 0) if $schild;
+    $schild = undef;
+    &$done();
   };
 
-  # Returns
-  &$auto_start()    if ($cmd eq 'auto_start');
-  &$auto_done()     if ($cmd eq 'auto_done');
-  &$ok()            if ($cmd eq 'ok');
-  &$meh()           if ($cmd eq 'meh');
-  &$nok()           if ($cmd eq 'nok');
-  return $slastsize if ($cmd eq 'lastsize');
+  &$auto_start() if ($cmd eq 'auto_start');
+  &$auto_done()  if ($cmd eq 'auto_done');
+  &$ok()         if ($cmd eq 'ok');
+  &$meh()        if ($cmd eq 'meh');
+  &$nok()        if ($cmd eq 'nok');
 }
+
+# Restore the cursor and stop the progress child if a plugin dies mid-check.
+END { spinner('auto_done'); }
 
 1;
